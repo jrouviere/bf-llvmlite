@@ -61,34 +61,37 @@ def jit(pgm):
             idxval = builder.load(idx, "idxval")
             el = builder.gep(tape, [idxval], name="el")
             data = builder.load(el, 'data')
-            incr = builder.add(data, int32(-1), name="incr")
-            builder.store(incr, el)
+            decr = builder.add(data, int32(-1), name="decr")
+            builder.store(decr, el)
 
         elif opcode == '[':
             # while tape[idx] != 0:
             idxval = builder.load(idx, "idxval")
             el = builder.gep(tape, [idxval], name="el")
             data = builder.load(el, 'data')
+            cmp = builder.icmp_signed('!=', data, int32(0))
 
             inner = bfrun.append_basic_block(name='inner')
-            after = bfrun.append_basic_block(name='after')
-            cmp = builder.icmp_signed('!=', data, int32(0))
+            after = ir.Block(parent=bfrun, name='after')
             builder.cbranch(cmp, inner, after)
 
             # next instructions are written inside the loop now
             builder.position_at_start(inner)
-            bracket_blocks.append(after)
+
+            # save the "after" block for later
+            bracket_blocks.append((inner, after))
 
         elif opcode == ']':
             idxval = builder.load(idx, "idxval")
             el = builder.gep(tape, [idxval], name="el")
             data = builder.load(el, 'data')
-
             cmp = builder.icmp_signed('!=', data, int32(0))
-            inner = builder.block
-            after = bracket_blocks.pop()
+
+            # blocks saved from matching '['
+            inner, after = bracket_blocks.pop()
             builder.cbranch(cmp, inner, after)
 
+            bfrun.blocks.append(after)
             builder.position_at_start(after)
     
         elif opcode == '.':
@@ -99,7 +102,7 @@ def jit(pgm):
 
         elif opcode == ',':
             # TODO: don't think this is correct
-            data = builder.call(getchar)
+            data = builder.call(getchar, [])
             idxval = builder.load(idx, "idxval")
             el = builder.gep(tape, [idxval], name="el")
             builder.store(data, el)
