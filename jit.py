@@ -7,6 +7,7 @@ def jit(pgm):
     bit = ir.IntType(1)
     int8 = ir.IntType(8)
     int32 = ir.IntType(32)
+    int64 = ir.IntType(64)
     int8ptr = int8.as_pointer()
 
     module = ir.Module(name="brainfuck_jit")
@@ -18,15 +19,15 @@ def jit(pgm):
     memset = module.declare_intrinsic('llvm.memset', [int8ptr, int32])
 
     fnty = ir.FunctionType(ir.VoidType(), [])
-    main = ir.Function(module, fnty, name="main")
+    bfrun = ir.Function(module, fnty, name="bfrun")
 
-    block = main.append_basic_block(name="entry")
+    block = bfrun.append_basic_block(name="entry")
     builder = ir.IRBuilder(block)
 
     tape = builder.alloca(int32, 30000, name="tape")
 
-    tape8 = builder.ptrtoint(tape, int8)
-    tape8 = builder.inttoptr(tape8, int8ptr)
+    tape_ptr = builder.ptrtoint(tape, int64)
+    tape8 = builder.inttoptr(tape_ptr, int8ptr)
     builder.call(memset, [tape8, int8(0), int32(4 * 30000), bit(0)])
 
     idx = builder.alloca(int32, name="idx")
@@ -69,8 +70,8 @@ def jit(pgm):
             el = builder.gep(tape, [idxval], name="el")
             data = builder.load(el, 'data')
 
-            inner = main.append_basic_block(name='inner')
-            after = main.append_basic_block(name='after')
+            inner = bfrun.append_basic_block(name='inner')
+            after = bfrun.append_basic_block(name='after')
             cmp = builder.icmp_signed('!=', data, int32(0))
             builder.cbranch(cmp, inner, after)
 
@@ -103,4 +104,5 @@ def jit(pgm):
             el = builder.gep(tape, [idxval], name="el")
             builder.store(data, el)
 
-    print(module)
+    builder.ret_void()
+    return module

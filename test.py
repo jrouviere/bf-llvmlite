@@ -2,7 +2,10 @@
 
 from interpreter import interpret
 from jit import jit
+from jit_link import run
 
+
+test0 = "+++."
 
 test1 = """
 ++++ ++++
@@ -24,7 +27,14 @@ helloworld = """
 ++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.
 """
 
-if __name__ == '__main__':
-    interpret(test2)
-    jit(test2)
 
+import llvmlite.binding as llvm
+
+llvm.initialize()
+llvm.initialize_native_target()
+llvm.initialize_native_asmprinter()
+
+if __name__ == '__main__':
+    ir = jit(helloworld)
+
+    run(str(ir))
