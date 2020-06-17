@@ -16,23 +16,24 @@ def create_execution_engine():
     return engine
 
 
-def compile_ir(engine, llvm_ir, optimize=False):
+def compile_ir(engine, llvm_ir, opt_level, dump_ir):
     mod = llvm.parse_assembly(llvm_ir)
     mod.verify()
 
-    print('======== Unoptimized LLVM IR')
-    print(llvm_ir)
+    if dump_ir:
+        print('---------- Initial LLVM IR ---------------')
+        print(llvm_ir)
 
 
     # Optimize the module
-    if optimize:
-        pmb = llvm.create_pass_manager_builder()
-        pmb.opt_level = 2
-        pm = llvm.create_module_pass_manager()
-        pmb.populate(pm)
-        pm.run(mod)
+    pmb = llvm.create_pass_manager_builder()
+    pmb.opt_level = opt_level
+    pm = llvm.create_module_pass_manager()
+    pmb.populate(pm)
+    pm.run(mod)
 
-        print('======== Optimized LLVM IR')
+    if dump_ir:
+        print('---------- Optimized LLVM IR ---------------')
         print(str(mod))
 
     engine.add_module(mod)
@@ -40,9 +41,9 @@ def compile_ir(engine, llvm_ir, optimize=False):
     engine.run_static_constructors()
     return mod
 
-def run(llvm_ir):
+def run(llvm_ir, opt_level=2, dump_ir=False):
     engine = create_execution_engine()
-    mod = compile_ir(engine, llvm_ir, optimize=True)
+    mod = compile_ir(engine, llvm_ir, opt_level, dump_ir)
     
     func_ptr = engine.get_function_address("bfrun")
 

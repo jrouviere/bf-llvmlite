@@ -2,39 +2,41 @@
 
 from llvmlite import ir
 
+bit = ir.IntType(1)
+int8 = ir.IntType(8)
+int32 = ir.IntType(32)
+int64 = ir.IntType(64)
+int8ptr = int8.as_pointer()
 
 def jit(pgm):
-    bit = ir.IntType(1)
-    int8 = ir.IntType(8)
-    int32 = ir.IntType(32)
-    int64 = ir.IntType(64)
-    int8ptr = int8.as_pointer()
-
     module = ir.Module(name="brainfuck_jit")
 
-    fnty = ir.FunctionType(int32, [])
-    getchar = ir.Function(module, fnty, name="getchar")
-    fnty = ir.FunctionType(ir.VoidType(), [int32])
-    putchar = ir.Function(module, fnty, name="putchar")
+    # declare the getchar/putchar C functions
+    # they are available in the cpython runtime so don't need any linking
+    getchar = ir.Function(module, ir.FunctionType(int32, []), name="getchar")
+    putchar = ir.Function(module, ir.FunctionType(ir.VoidType(), [int32]), name="putchar")
     memset = module.declare_intrinsic('llvm.memset', [int8ptr, int32])
 
-    fnty = ir.FunctionType(ir.VoidType(), [])
-    bfrun = ir.Function(module, fnty, name="bfrun")
+    # our program
+    bfrun = ir.Function(module, ir.FunctionType(ir.VoidType(), []), name="bfrun")
 
     block = bfrun.append_basic_block(name="entry")
     builder = ir.IRBuilder(block)
 
+    # initialise the brainfuck memory space: the "tape"
     tape = builder.alloca(int32, 30000, name="tape")
-
     tape_ptr = builder.ptrtoint(tape, int64)
     tape8 = builder.inttoptr(tape_ptr, int8ptr)
     builder.call(memset, [tape8, int8(0), int32(4 * 30000), bit(0)])
 
+    # current position on the "tape"
     idx = builder.alloca(int32, name="idx")
     builder.store(int32(0), idx)
 
+    # a stack to store nested block
     bracket_blocks = []
 
+    # generate llvm-ir for each opcode in the program
     for opcode in pgm:
         if opcode == '>':
             # idx++
@@ -101,7 +103,7 @@ def jit(pgm):
             builder.call(putchar, [data])
 
         elif opcode == ',':
-            # TODO: don't think this is correct
+            # TODO: not tested
             data = builder.call(getchar, [])
             idxval = builder.load(idx, "idxval")
             el = builder.gep(tape, [idxval], name="el")
