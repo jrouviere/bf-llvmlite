@@ -53,24 +53,24 @@ def jit(pgm):
         elif opcode == '+':
             # tape[idx] +=1
             idxval = builder.load(idx, "idxval")
-            el = builder.gep(tape, [idxval], name="el")
-            data = builder.load(el, 'data')
+            cell = builder.gep(tape, [idxval], name="cell")
+            data = builder.load(cell, 'data')
             incr = builder.add(data, int32(1), name="incr")
-            builder.store(incr, el)
+            builder.store(incr, cell)
 
         elif opcode == '-':
             # tape[idx] -=1
             idxval = builder.load(idx, "idxval")
-            el = builder.gep(tape, [idxval], name="el")
-            data = builder.load(el, 'data')
+            cell = builder.gep(tape, [idxval], name="cell")
+            data = builder.load(cell, 'data')
             decr = builder.add(data, int32(-1), name="decr")
-            builder.store(decr, el)
+            builder.store(decr, cell)
 
         elif opcode == '[':
             # while tape[idx] != 0:
             idxval = builder.load(idx, "idxval")
-            el = builder.gep(tape, [idxval], name="el")
-            data = builder.load(el, 'data')
+            cell = builder.gep(tape, [idxval], name="cell")
+            data = builder.load(cell, 'data')
             cmp = builder.icmp_signed('!=', data, int32(0))
 
             inner = bfrun.append_basic_block(name='inner')
@@ -85,8 +85,8 @@ def jit(pgm):
 
         elif opcode == ']':
             idxval = builder.load(idx, "idxval")
-            el = builder.gep(tape, [idxval], name="el")
-            data = builder.load(el, 'data')
+            cell = builder.gep(tape, [idxval], name="cell")
+            data = builder.load(cell, 'data')
             cmp = builder.icmp_signed('!=', data, int32(0))
 
             # blocks saved from matching '['
@@ -98,16 +98,15 @@ def jit(pgm):
     
         elif opcode == '.':
             idxval = builder.load(idx, "idxval")
-            el = builder.gep(tape, [idxval], name="el")
-            data = builder.load(el, 'data')
+            cell = builder.gep(tape, [idxval], name="cell")
+            data = builder.load(cell, 'data')
             builder.call(putchar, [data])
 
         elif opcode == ',':
-            # TODO: not tested
             data = builder.call(getchar, [])
             idxval = builder.load(idx, "idxval")
-            el = builder.gep(tape, [idxval], name="el")
-            builder.store(data, el)
+            cell = builder.gep(tape, [idxval], name="cell")
+            builder.store(data, cell)
 
     builder.ret_void()
     return module
